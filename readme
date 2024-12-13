@@ -1,0 +1,96 @@
+Step 1: docker-compose demand mysql root user has a password 
+        we update the user with the following steps :
+        a. mysql -u root
+        b. - ALTER USER 'root'@'localhost' IDENTIFIED BY 'new_password';
+        - FLUSH PRIVILEGES;
+        - exit;
+
+        c.Locate the config.inc.php file in the phpMyAdmin directory (usually found in xampp/phpMyAdmin).
+            Open it in a text editor, like VS Code.
+            Find the line that looks like this:
+
+                - $cfg['Servers'][$i]['password'] = '';
+            Update it with your new password:
+                - $cfg['Servers'][$i]['password'] = 'new_password';
+            Save and close the file.
+        d. Restart MySQL
+
+Step 2: create the Database scripts init-scripts/init.sql
+
+        CREATE DATABASE IF NOT EXISTS employee_db;
+        USE employee_db;
+        CREATE TABLE IF NOT EXISTS employee (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        age INT NOT NULL,
+        address TEXT NOT NULL
+
+Step 3 : change the connection to adher the following :
+    a. localhost is replaced with container hostname like db
+    b. root user MUST have a password
+    c. connect to db with a different user 
+
+
+Step 4 : Create the Dockerfile 
+            # Use the official PHP image with Apache
+            FROM php:8.1-apache
+
+            # Set the working directory in the container
+            WORKDIR /var/www/html
+
+            # Copy application files to the container
+            COPY . /var/www/html
+
+            # Install required PHP extensions and dependencies
+            RUN apt-get update && apt-get install -y \
+                libonig-dev \
+                libzip-dev \
+                zip \
+                unzip \
+                && docker-php-ext-install mbstring mysqli pdo pdo_mysql
+
+            # Enable Apache mod_rewrite
+            RUN a2enmod rewrite
+
+            # Set the appropriate permissions
+            RUN chown -R www-data:www-data /var/www/html \
+                && chmod -R 755 /var/www/html
+
+            # Expose the default Apache port
+            EXPOSE 80
+
+            # Start Apache
+            CMD ["apache2-foreground"]
+            
+Step 5 :create the docker-compose .yml file
+
+
+            version: '3.8'
+
+            services:
+            web:
+                build:
+                context: .
+                dockerfile: Dockerfile
+                ports:
+                - "8080:80"
+                volumes:
+                - .:/var/www/html
+                depends_on:
+                - db
+
+            db:
+                image: mysql:8.0
+                container_name: mysql
+                ports:
+                - "3307:3306"
+                environment:
+                MYSQL_ROOT_PASSWORD: root
+                MYSQL_DATABASE: employee_db
+                MYSQL_USER: ltuc
+                MYSQL_PASSWORD: Kareem@99
+                volumes:
+                - db_data:/var/lib/mysql
+                - ./init-scripts:/docker-entrypoint-initdb.d/init.sql
+            volumes:
+            db_data:
